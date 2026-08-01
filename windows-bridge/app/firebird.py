@@ -14,7 +14,7 @@ def _serialize(value: datetime | date | time | object) -> str:
     return value.isoformat() if hasattr(value, "isoformat") else str(value)
 
 
-def ping_database() -> dict:
+def _connect() -> fdb.Connection:
     global _api_loaded
 
     if not _api_loaded:
@@ -23,7 +23,7 @@ def ping_database() -> dict:
                 fdb.load_api(settings.firebird_client_library)
                 _api_loaded = True
 
-    connection = fdb.connect(
+    return fdb.connect(
         host=settings.firebird_host,
         port=settings.firebird_port,
         database=settings.firebird_database,
@@ -31,6 +31,10 @@ def ping_database() -> dict:
         password=settings.firebird_password,
         charset=settings.firebird_charset,
     )
+
+
+def ping_database() -> dict:
+    connection = _connect()
 
     try:
         cursor = connection.cursor()
@@ -43,3 +47,26 @@ def ping_database() -> dict:
     finally:
         connection.close()
 
+
+def find_client(code: str) -> dict[str, str] | None:
+    connection = _connect()
+
+    try:
+        cursor = connection.cursor()
+        cursor.execute(
+            "SELECT CODIGO, NOMBRE, DIRECCION, TELEFONOS "
+            "FROM CLIENTES WHERE CODIGO = ?",
+            (code,),
+        )
+        row = cursor.fetchone()
+        if row is None:
+            return None
+
+        return {
+            "code": row[0].strip(),
+            "name": (row[1] or "").strip(),
+            "address": (row[2] or "").strip(),
+            "phones": (row[3] or "").strip(),
+        }
+    finally:
+        connection.close()

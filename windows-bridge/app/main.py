@@ -7,7 +7,7 @@ from time import perf_counter
 
 from fastapi import FastAPI, Header, HTTPException
 
-from .firebird import ping_database
+from .firebird import find_client, ping_database
 from .settings import settings
 
 
@@ -62,3 +62,27 @@ async def firebird_ping(x_bridge_key: str = Header(alias="X-Bridge-Key")) -> dic
         logger.exception("firebird_ping ok=false error_type=%s", type(exc).__name__)
         raise HTTPException(status_code=502, detail="No fue posible consultar Firebird.")
 
+
+@app.get("/v1/clients/{client_code}")
+async def client_lookup(
+    client_code: str, x_bridge_key: str = Header(alias="X-Bridge-Key")
+) -> dict:
+    require_bridge_key(x_bridge_key)
+    client_code = client_code.strip()
+    if not client_code:
+        raise HTTPException(status_code=422, detail="El código de cliente es obligatorio.")
+
+    try:
+        client = await asyncio.wait_for(asyncio.to_thread(find_client, client_code), timeout=10)
+    except TimeoutError:
+        logger.exception("client_lookup ok=false reason=timeout")
+        raise HTTPException(status_code=504, detail="Firebird excedió el tiempo límite.")
+    except Exception as exc:
+        logger.exception("client_lookup ok=false error_type=%s", type(exc).__name__)
+        raise HTTPException(status_code=502, detail="No fue posible consultar Firebird.")
+
+    if client is None:
+        raise HTTPException(status_code=404, detail="Cliente no encontrado.")
+
+    logger.info("client_lookup ok=true")
+    return client

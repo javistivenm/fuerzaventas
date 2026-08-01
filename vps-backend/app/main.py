@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from secrets import compare_digest
+from urllib.parse import quote
 
 import httpx
 from fastapi import FastAPI, Header, HTTPException
@@ -24,10 +25,15 @@ async def health() -> dict:
     return {"ok": True, "service": "vps-backend"}
 
 
-@app.get("/api/poc/status")
-async def poc_status(x_poc_code: str = Header(alias="X-Poc-Code")) -> dict:
+def require_poc_code(x_poc_code: str) -> None:
     if not compare_digest(x_poc_code, settings.poc_access_code):
         raise HTTPException(status_code=401, detail="Código de acceso incorrecto.")
+
+
+
+@app.get("/api/poc/status")
+async def poc_status(x_poc_code: str = Header(alias="X-Poc-Code")) -> dict:
+    require_poc_code(x_poc_code)
 
     bridge_status = {"ok": False, "message": "No fue posible llegar a Windows."}
     firebird_status = {"ok": False, "message": "No comprobado.", "server_time": None}
@@ -68,3 +74,28 @@ async def poc_status(x_poc_code: str = Header(alias="X-Poc-Code")) -> dict:
         "firebird": firebird_status,
     }
 
+
+@app.get("/api/clients/{client_code}")
+async def client_lookup(
+    client_code: str, x_poc_code: str = Header(alias="X-Poc-Code")
+) -> dict:
+    require_poc_code(x_poc_code)
+    client_code = client_code.strip()
+    if not client_code:
+        raise HTTPException(status_code=422, detail="El código de cliente es obligatorio.")
+
+    try:
+        async with httpx.AsyncClient(timeout=settings.bridge_timeout_seconds) as client:
+            response = await client.get(
+                f"{settings.bridge_url.rstrip('/')}/v1/clients/{quote(client_code, safe='')}",
+                headers={"X-Bridge-Key": settings.bridge_api_key},
+            )
+    except httpx.RequestError:
+        raise HTTPException(status_code=502, detail="No fue posible llegar a Windows.")
+
+    if response.status_code == 404:
+        raise HTTPException(status_code=404, detail="Cliente no encontrado.")
+    if response.is_error:
+        raise HTTPException(status_code=502, detail="El puente no pudo consultar Firebird.")
+
+    return response.json()

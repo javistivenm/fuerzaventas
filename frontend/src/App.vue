@@ -2,41 +2,53 @@
 import { computed, ref } from "vue";
 
 const accessCode = ref(sessionStorage.getItem("valery-poc-code") || "");
+const clientCode = ref("");
+const client = ref(null);
 const loading = ref(false);
-const result = ref(null);
 const error = ref("");
 
-const checkedAt = computed(() => {
-  if (!result.value?.checked_at) return "";
-  return new Intl.DateTimeFormat("es", {
-    dateStyle: "medium",
-    timeStyle: "medium"
-  }).format(new Date(result.value.checked_at));
-});
+const hasAccessCode = computed(() => Boolean(accessCode.value.trim()));
 
-async function testConnection() {
+function saveAccessCode() {
   error.value = "";
-  result.value = null;
-
   if (!accessCode.value.trim()) {
     error.value = "Ingresa el código de acceso de la prueba.";
     return;
   }
 
   sessionStorage.setItem("valery-poc-code", accessCode.value.trim());
+}
+
+function changeAccessCode() {
+  sessionStorage.removeItem("valery-poc-code");
+  accessCode.value = "";
+  client.value = null;
+  error.value = "";
+}
+
+async function findClient() {
+  error.value = "";
+  client.value = null;
+
+  if (!clientCode.value.trim()) {
+    error.value = "Ingresa un código de cliente.";
+    return;
+  }
+
   loading.value = true;
 
   try {
-    const response = await fetch("/api/poc/status", {
+    const response = await fetch(`/api/clients/${encodeURIComponent(clientCode.value.trim())}`, {
       headers: { "X-Poc-Code": accessCode.value.trim() }
     });
     const body = await response.json();
 
     if (!response.ok) {
-      throw new Error(body.detail || "No fue posible ejecutar la prueba.");
+      if (response.status === 401) changeAccessCode();
+      throw new Error(body.detail || "No fue posible buscar el cliente.");
     }
 
-    result.value = body;
+    client.value = body;
   } catch (requestError) {
     error.value = requestError.message || "Error inesperado.";
   } finally {
@@ -49,59 +61,69 @@ async function testConnection() {
   <main class="shell">
     <section class="card">
       <div class="eyebrow">PRUEBA DE CONCEPTO</div>
-      <h1>Conexión con Valery</h1>
+      <h1>Consulta de clientes</h1>
       <p class="intro">
-        Comprueba el enlace privado desde este celular hasta Firebird 2.5,
-        pasando por el VPS y Tailscale.
+        Busca un cliente por código. La información se consulta de forma privada en Valery.
       </p>
 
-      <label for="access-code">Código de acceso</label>
-      <input
-        id="access-code"
-        v-model="accessCode"
-        type="password"
-        autocomplete="current-password"
-        placeholder="Código de la prueba"
-        @keyup.enter="testConnection"
-      />
+      <form v-if="!hasAccessCode" @submit.prevent="saveAccessCode">
+        <label for="access-code">Código de acceso</label>
+        <input
+          id="access-code"
+          v-model="accessCode"
+          type="password"
+          autocomplete="current-password"
+          placeholder="Código de la prueba"
+        />
+        <button type="submit">Continuar</button>
+      </form>
 
-      <button :disabled="loading" @click="testConnection">
-        {{ loading ? "Comprobando…" : "Probar conexión" }}
-      </button>
+      <form v-else @submit.prevent="findClient">
+        <div class="access-state">
+          <span>Acceso configurado para esta sesión.</span>
+          <button type="button" class="link-button" @click="changeAccessCode">
+            Cambiar código de acceso
+          </button>
+        </div>
+
+        <label for="client-code">Código de cliente</label>
+        <input
+          id="client-code"
+          v-model="clientCode"
+          autocomplete="off"
+          inputmode="numeric"
+          placeholder="Ejemplo: 003"
+        />
+
+        <button type="submit" :disabled="loading">
+          {{ loading ? "Buscando…" : "Buscar cliente" }}
+        </button>
+      </form>
 
       <p v-if="error" class="message error" role="alert">{{ error }}</p>
 
-      <div v-if="result" class="results" aria-live="polite">
-        <div class="status-row">
-          <span :class="['dot', result.vps.ok ? 'ok' : 'bad']"></span>
+      <div v-if="client" class="client-card" aria-live="polite">
+        <p class="client-heading">Cliente encontrado</p>
+        <dl>
           <div>
-            <strong>Backend del VPS</strong>
-            <small>{{ result.vps.message }}</small>
+            <dt>Código</dt>
+            <dd>{{ client.code }}</dd>
           </div>
-        </div>
-        <div class="status-row">
-          <span :class="['dot', result.bridge.ok ? 'ok' : 'bad']"></span>
           <div>
-            <strong>Puente Windows</strong>
-            <small>{{ result.bridge.message }}</small>
+            <dt>Nombre</dt>
+            <dd>{{ client.name || "No registrado" }}</dd>
           </div>
-        </div>
-        <div class="status-row">
-          <span :class="['dot', result.firebird.ok ? 'ok' : 'bad']"></span>
           <div>
-            <strong>Valery / Firebird 2.5</strong>
-            <small>{{ result.firebird.message }}</small>
+            <dt>Dirección</dt>
+            <dd>{{ client.address || "No registrada" }}</dd>
           </div>
-        </div>
-
-        <div v-if="result.firebird.server_time" class="server-time">
-          Hora reportada por Firebird
-          <strong>{{ result.firebird.server_time }}</strong>
-        </div>
-        <p class="checked">Última prueba: {{ checkedAt }}</p>
+          <div>
+            <dt>Teléfonos</dt>
+            <dd>{{ client.phones || "No registrados" }}</dd>
+          </div>
+        </dl>
       </div>
     </section>
     <p class="privacy">Firebird no está publicado en Internet.</p>
   </main>
 </template>
-
