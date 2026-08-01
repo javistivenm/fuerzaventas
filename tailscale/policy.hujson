@@ -1,0 +1,25 @@
+{
+  // Reemplace las dos IP antes de aplicar esta política.
+  "hosts": {
+    "vps-dokploy": "100.64.0.1",
+    "windows-firebird": "100.64.0.2",
+  },
+
+  // Solo el VPS puede llegar al puente. No se concede acceso a 3050.
+  "grants": [
+    {
+      "src": ["vps-dokploy"],
+      "dst": ["windows-firebird"],
+      "ip": ["tcp:8787"],
+    },
+  ],
+
+  "tests": [
+    {
+      "src": "vps-dokploy",
+      "accept": ["windows-firebird:8787"],
+      "deny": ["windows-firebird:3050"],
+    },
+  ],
+}
+

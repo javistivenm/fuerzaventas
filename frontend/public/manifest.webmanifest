@@ -1,0 +1,18 @@
+{
+  "name": "Conexión Valery",
+  "short_name": "Valery",
+  "description": "Prueba privada de conexión con Valery Firebird",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#eef5f7",
+  "theme_color": "#102a43",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
+

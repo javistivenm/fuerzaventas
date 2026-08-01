@@ -1,0 +1,29 @@
+services:
+  backend:
+    build:
+      context: ./vps-backend
+    restart: unless-stopped
+    environment:
+      POC_ACCESS_CODE: ${POC_ACCESS_CODE}
+      BRIDGE_URL: ${BRIDGE_URL}
+      BRIDGE_API_KEY: ${BRIDGE_API_KEY}
+      BRIDGE_TIMEOUT_SECONDS: ${BRIDGE_TIMEOUT_SECONDS:-10}
+    networks:
+      - valery-poc
+
+  frontend:
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    networks:
+      - valery-poc
+      - dokploy-network
+
+networks:
+  valery-poc:
+    driver: bridge
+  dokploy-network:
+    external: true
+
