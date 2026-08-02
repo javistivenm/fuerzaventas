@@ -93,7 +93,6 @@ async function findClient() {
           id="client-code"
           v-model="clientCode"
           autocomplete="off"
-          inputmode="numeric"
           placeholder="Ejemplo: 003"
         />
 
