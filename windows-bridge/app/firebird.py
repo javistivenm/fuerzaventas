@@ -55,7 +55,7 @@ def find_client(code: str) -> dict[str, str] | None:
         cursor = connection.cursor()
         cursor.execute(
             "SELECT CODIGO, NOMBRE, DIRECCION, TELEFONOS "
-            "FROM CLIENTES WHERE CODIGO = ?",
+            "FROM CLIENTES WHERE TRIM(CODIGO) = ?",
             (code,),
         )
         row = cursor.fetchone()

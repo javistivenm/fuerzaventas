@@ -1,13 +1,13 @@
 <script setup>
-import { computed, ref } from "vue";
+import { ref } from "vue";
 
-const accessCode = ref(sessionStorage.getItem("valery-poc-code") || "");
+const savedAccessCode = sessionStorage.getItem("valery-poc-code") || "";
+const accessCode = ref(savedAccessCode);
+const accessConfigured = ref(Boolean(savedAccessCode));
 const clientCode = ref("");
 const client = ref(null);
 const loading = ref(false);
 const error = ref("");
-
-const hasAccessCode = computed(() => Boolean(accessCode.value.trim()));
 
 function saveAccessCode() {
   error.value = "";
@@ -17,11 +17,13 @@ function saveAccessCode() {
   }
 
   sessionStorage.setItem("valery-poc-code", accessCode.value.trim());
+  accessConfigured.value = true;
 }
 
 function changeAccessCode() {
   sessionStorage.removeItem("valery-poc-code");
   accessCode.value = "";
+  accessConfigured.value = false;
   client.value = null;
   error.value = "";
 }
@@ -66,7 +68,7 @@ async function findClient() {
         Busca un cliente por código. La información se consulta de forma privada en Valery.
       </p>
 
-      <form v-if="!hasAccessCode" @submit.prevent="saveAccessCode">
+      <form v-if="!accessConfigured" @submit.prevent="saveAccessCode">
         <label for="access-code">Código de acceso</label>
         <input
           id="access-code"
